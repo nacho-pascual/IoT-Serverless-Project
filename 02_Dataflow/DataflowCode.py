@@ -20,9 +20,12 @@ import datetime
 
 def parse_json_message(message):
     '''Mapping message from PubSub'''
+    #Mapping message from PubSub
     #DecodePubSub message in order to deal with
     pubsubmessage = message.data.decode('utf-8')
-    attributes = message.attributes   
+    #Get messages attributes
+    attributes = message.attributes
+
     #Print through console and check that everything is fine.
     logging.info("Receiving message from PubSub:%s", message)
     logging.info("with attributes: %s", attributes)
@@ -43,10 +46,10 @@ class add_processing_time(beam.DoFn):
         output_data = {'aggTemperature': element, 'processingTime': window_start}
         output_json = json.dumps(output_data)
         yield output_json.encode('utf-8')
-        
+
 
 #Create DoFn Class to extract temperature from data
-class aggtemperature (beam.DoFn):
+class agg_temperature(beam.DoFn):
     def process(self, element):
         temperature = element['temperature']
         yield temperature
@@ -68,7 +71,7 @@ def edemData(output_table):
         #Part01: we create pipeline from PubSub to BigQuery
         data = (
             #Read messages from PubSub
-            p | "Read messages from PubSub" >> beam.io.ReadFromPubSub(subscription=f"projects/testcloud-376408/subscriptions/{output_table}-sub", with_attributes=True)
+            p | "Read messages from PubSub" >>  beam.io.ReadFromPubSub(subscription=f"projects/deft-epigram-375817/subscriptions/{output_table}-sub", with_attributes=True)
             #Parse JSON messages with Map Function and adding Processing timestamp
               | "Parse JSON messages" >> beam.Map(parse_json_message)
         )
@@ -76,22 +79,22 @@ def edemData(output_table):
         #Part02: Write proccessing message to their appropiate sink
         #Data to Bigquery
         (data | "Write to BigQuery" >>  beam.io.WriteToBigQuery(
-            table = f"testcloud-376408:edemDataset.{output_table}",
+            table = f"deft-epigram-375817:edemDataset.{output_table}",
             schema = schema,
             create_disposition=beam.io.BigQueryDisposition.CREATE_IF_NEEDED,
-            write_disposition=beam.io.BigQueryDisposition.WRITE_APPEND 
+            write_disposition=beam.io.BigQueryDisposition.WRITE_APPEND
         ))
 
         #Part03: Count temperature per minute and put that data into PubSub
         #Create a fixed window (1 min duration)
         (data 
-            | "Get temperature value" >> beam.ParDo(aggtemperature())
+            | "Get temperature value" >> beam.ParDo(agg_temperature())
             | "WindowByMinute" >> beam.WindowInto(window.FixedWindows(60))
             | "MeanByWindow" >> beam.CombineGlobally(MeanCombineFn()).without_defaults()
-            | "Add Window ProcessingTime" >> beam.ParDo(add_processing_time())
-            | "WriteToPubSub" >> beam.io.WriteToPubSub(topic="projects/testcloud-376408/topics/iotToCloudFunctions", with_attributes=False)
+            | "Add Window ProcessingTime" >>  beam.ParDo(add_processing_time())
+            | "WriteToPubSub" >>  beam.io.WriteToPubSub(topic="projects/deft-epigram-375817/topics/iotToCloudFunctions", with_attributes=False)
         )
 
 if __name__ == '__main__':
     logging.getLogger().setLevel(logging.INFO)
-    edemData("YOUR_BIGQUERY_TABLE_NAME")
+    edemData("iotToBigQuery")
