@@ -68,7 +68,7 @@ def edemData(output_table):
         #Part01: we create pipeline from PubSub to BigQuery
         data = (
             #Read messages from PubSub
-            p | "Read messages from PubSub" >> beam.io.ReadFromPubSub(subscription=f"projects/proyecto2-342819/subscriptions/{output_table}-sub", with_attributes=True)
+            p | "Read messages from PubSub" >> beam.io.ReadFromPubSub(subscription=f"projects/testcloud-376408/subscriptions/{output_table}-sub", with_attributes=True)
             #Parse JSON messages with Map Function and adding Processing timestamp
               | "Parse JSON messages" >> beam.Map(parse_json_message)
         )
@@ -76,7 +76,7 @@ def edemData(output_table):
         #Part02: Write proccessing message to their appropiate sink
         #Data to Bigquery
         (data | "Write to BigQuery" >>  beam.io.WriteToBigQuery(
-            table = f"proyecto2-342819:edemDataset.{output_table}",
+            table = f"testcloud-376408:edemDataset.{output_table}",
             schema = schema,
             create_disposition=beam.io.BigQueryDisposition.CREATE_IF_NEEDED,
             write_disposition=beam.io.BigQueryDisposition.WRITE_APPEND 
@@ -89,7 +89,7 @@ def edemData(output_table):
             | "WindowByMinute" >> beam.WindowInto(window.FixedWindows(60))
             | "MeanByWindow" >> beam.CombineGlobally(MeanCombineFn()).without_defaults()
             | "Add Window ProcessingTime" >> beam.ParDo(add_processing_time())
-            | "WriteToPubSub" >> beam.io.WriteToPubSub(topic="projects/proyecto2-342819/topics/iotToCloudFunctions", with_attributes=False)
+            | "WriteToPubSub" >> beam.io.WriteToPubSub(topic="projects/testcloud-376408/topics/iotToCloudFunctions", with_attributes=False)
         )
 
 if __name__ == '__main__':
